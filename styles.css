@@ -28,6 +28,17 @@ body {
     overflow: hidden;
   }
   
+  .about {
+    padding: 20px 0;
+  }
+  
+  .skills-experience {
+    background: #f4f4f4;
+    padding: 20px;
+    margin: 20px 0;
+    border-radius: 5px;
+  }
+  
   .flex-container {
     display: flex;
     justify-content: space-between;
@@ -36,22 +47,18 @@ body {
   
   .skills, .experience {
     flex: 1;
-    background: #f4f4f4;
-    padding: 20px;
-    border-radius: 5px;
   }
   
-  h2 {
-    margin-bottom: 10px;
+  .skills h2, .experience h2 {
     color: #007BFF;
   }
   
-  ul {
+  .skills ul, .experience ul {
     list-style: none;
     padding: 0;
   }
   
-  ul li {
+  .skills ul li, .experience ul li {
     background: #ddd;
     margin: 5px 0;
     padding: 10px;
