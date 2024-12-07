@@ -1,2 +1,2 @@
 # WhoIAm
-a website to introduce myself
+A website to introduce myself
