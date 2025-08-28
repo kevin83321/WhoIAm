@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notion 公式/API 產生器（雙進度條）</title>
+<style>
+  body{font:16px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,Inter,'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;margin:0;background:#0b1025;color:#d9e1ff}
+  .wrap{max-width:980px;margin:32px auto;padding:0 16px}
+  .card{background:#0f1533;border:1px solid #263168;border-radius:16px;padding:18px 18px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+  h1{font-size:20px;margin:0 0 10px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  label{display:block;margin:6px 0 6px;color:#aab6ff}
+  input,select,textarea{width:100%;border:1px solid #2a386e;border-radius:10px;background:#0b1025;color:#e0e7ff;padding:10px 12px}
+  textarea{min-height:220px;white-space:pre}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  button{cursor:pointer;border:0;border-radius:10px;background:#5b7cff;color:#0b1025;padding:10px 14px;font-weight:700}
+  .ghost{background:#223060;color:#d9e1ff}
+  .small{font-size:12px;color:#9fb0ff}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Notion 公式/API 產生器（雙進度條：🌕/🌑 + ⭕時間軸）</h1>
+    <div class="grid">
+      <div>
+        <label>完成度欄位名稱（Number 0~1）</label>
+        <input id="pName" value="完成度">
+        <label>開始日期欄位名稱（Date，可留白時隱藏下條）</label>
+        <input id="sName" value="Start Date">
+        <label>截止日期欄位名稱（Date）</label>
+        <input id="dName" value="Dead Line">
+        <div class="btns">
+          <button id="gen">產生公式與 API</button>
+          <button id="copyFormula" class="ghost">複製 公式</button>
+          <button id="copyApi" class="ghost">複製 API JSON</button>
+        </div>
+        <p class="small">說明：若開始/截止任一為空，輸出只顯示上方 🌕/🌑 進度條。</p>
+      </div>
+      <div>
+        <label>產生的 Notion 公式</label>
+        <textarea id="formula" class="mono" readonly></textarea>
+      </div>
+    </div>
+
+    <label style="margin-top:14px">Notion API：建立頁面（請改成你的資料庫與屬性名稱/狀態選項）</label>
+    <textarea id="api" class="mono" readonly></textarea>
+
+    <div class="btns">
+      <button id="copyBoth">一次複製兩者</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function buildFormula(p, s, d) {
+  // 轉義 Notion prop 名稱中的引號
+  const q = (name) => name.replace(/"/g, '\\"');
+
+  return `"Progress " +
+repeat("🌕", floor(prop("${q(p)}") * 10)) +
+repeat("🌑", 10 - floor(prop("${q(p)}") * 10)) +
+" " + format(round(prop("${q(p)}") * 100)) + "%" +
+if(
+  or(empty(prop("${q(s)}")), empty(prop("${q(d)}"))),
+  "",
+  "\\n\\nDeadline: " +
+  let(
+    total, max(1, dateBetween(prop("${q(d)}"), prop("${q(s)}"), "days")),
+    elapsed, dateBetween(now(), prop("${q(s)}"), "days"),
+    pct, min(100, max(0, floor(100 * elapsed / total))),
+    ticks, 20,
+    filled, min(ticks, max(0, floor(ticks * elapsed / total))),
+    if(
+      elapsed < 0,
+      "⭕" + repeat("‒", ticks) + " 0%",
+      if(
+        dateBetween(prop("${q(d)}"), now(), "days") < 0,
+        repeat("‒", ticks) + "⭕ 100%",
+        repeat("‒", filled) + "⭕" + repeat("‒", ticks - filled) + " " + format(pct) + "%"
+      )
+    )
+  )
+)`;
+}
+
+function buildApiJson(p, s, d) {
+  // 這是最小可用的建立頁面範本：Title 必填，Number/Date 可替換
+  return `{
+  "parent": { "database_id": "YOUR_DATABASE_ID" },
+  "properties": {
+    "Item": {
+      "title": [
+        { "text": { "content": "雙進度條範例頁" } }
+      ]
+    },
+    "${p}": {
+      "number": 0.4
+    },
+    "${s}": {
+      "date": { "start": "2025-08-25" }
+    },
+    "${d}": {
+      "date": { "start": "2025-08-31" }
+    }
+    /* 其他屬性依你的資料庫型別加入：
+    "Classification": { "status": { "name": "Not started" } },
+    "Notes": { "rich_text": [{ "text": { "content": "由 API 建立" } }] }
+    */
+  }
+}`;
+}
+
+function gen() {
+  const p = document.getElementById('pName').value.trim() || '完成度';
+  const s = document.getElementById('sName').value.trim() || 'Start Date';
+  const d = document.getElementById('dName').value.trim() || 'Dead Line';
+  document.getElementById('formula').value = buildFormula(p, s, d);
+  document.getElementById('api').value = buildApiJson(p, s, d);
+}
+
+async function copySel(id){
+  const t = document.getElementById(id).value;
+  await navigator.clipboard.writeText(t);
+  alert('已複製：' + (id==='formula'?'公式':'API JSON'));
+}
+
+document.getElementById('gen').addEventListener('click', gen);
+document.getElementById('copyFormula').addEventListener('click', () => copySel('formula'));
+document.getElementById('copyApi').addEventListener('click', () => copySel('api'));
+document.getElementById('copyBoth').addEventListener('click', async () => {
+  await navigator.clipboard.writeText(
+    '--- Notion 公式 ---\\n' + document.getElementById('formula').value +
+    '\\n\\n--- Notion API ---\\n' + document.getElementById('api').value
+  );
+  alert('已複製 公式 + API JSON');
+});
+
+// 初次產生
+gen();
+</script>
+</body>
+</html>
